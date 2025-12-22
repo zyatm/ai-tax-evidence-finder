@@ -1,0 +1,313 @@
+{
+  "name": "SEC 10-K Evidence Extraction",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "extract-10k",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "webhookId": "extract-10k-webhook"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/app/10k-inbox/{{ $json.filename || 'input_10k.pdf' }}",
+        "options": {}
+      },
+      "id": "save-pdf",
+      "name": "Save PDF to Disk",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "command": "=python3 /app/10k_extraction_engine.py \"/app/10k-inbox/{{ $json.filename || 'input_10k.pdf' }}\" \"/app/output/{{ ($json.filename || 'input_10k.pdf').replace('.pdf', '_EXTRACTED.xlsx') }}\""
+      },
+      "id": "run-extraction",
+      "name": "Run Extraction Script",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "=/app/output/{{ ($node['Save PDF to Disk'].json.fileName.split('/').pop()).replace('.pdf', '_EXTRACTED.xlsx') }}"
+      },
+      "id": "read-output",
+      "name": "Read Excel Output",
+      "type": "n8n-nodes-base.readBinaryFiles",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Disposition",
+                "value": "=attachment; filename=\"{{ ($node['Save PDF to Disk'].json.fileName.split('/').pop()).replace('.pdf', '_EXTRACTED.xlsx') }}\""
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-webhook",
+      "name": "Respond with File",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 520]
+    },
+    {
+      "parameters": {
+        "command": "ls -1 /app/10k-inbox/*.pdf 2>/dev/null || echo ''"
+      },
+      "id": "list-inbox",
+      "name": "List Inbox Files",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [460, 520]
+    },
+    {
+      "parameters": {
+        "jsCode": "const stdout = $input.first().json.stdout;\nif (!stdout || stdout.trim() === '') {\n  return [];\n}\n\nconst files = stdout.trim().split('\\n').filter(f => f.endsWith('.pdf'));\nreturn files.map(filepath => ({\n  json: {\n    filepath: filepath,\n    filename: filepath.split('/').pop()\n  }\n}));"
+      },
+      "id": "parse-files",
+      "name": "Parse File List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 520]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "batch-processor",
+      "name": "Process One at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 520]
+    },
+    {
+      "parameters": {
+        "command": "=python3 /app/10k_extraction_engine.py \"{{ $json.filepath }}\" \"/app/output/{{ $json.filename.replace('.pdf', '_EXTRACTED.xlsx') }}\""
+      },
+      "id": "batch-extraction",
+      "name": "Run Batch Extraction",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1120, 520]
+    },
+    {
+      "parameters": {
+        "command": "=mv \"{{ $json.filepath }}\" \"/app/10k-processed/{{ $json.filename }}\""
+      },
+      "id": "move-processed",
+      "name": "Move to Processed",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1340, 520]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-check",
+              "leftValue": "={{ $json.stdout }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-files",
+      "name": "Has Files?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [560, 520]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Save PDF to Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save PDF to Disk": {
+      "main": [
+        [
+          {
+            "node": "Run Extraction Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Extraction Script": {
+      "main": [
+        [
+          {
+            "node": "Read Excel Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Excel Output": {
+      "main": [
+        [
+          {
+            "node": "Respond with File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "List Inbox Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Inbox Files": {
+      "main": [
+        [
+          {
+            "node": "Has Files?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Files?": {
+      "main": [
+        [
+          {
+            "node": "Parse File List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse File List": {
+      "main": [
+        [
+          {
+            "node": "Batch Processor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One at a Time": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Run Batch Extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Batch Extraction": {
+      "main": [
+        [
+          {
+            "node": "Move to Processed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Move to Processed": {
+      "main": [
+        [
+          {
+            "node": "Process One at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "SEC",
+      "id": "1"
+    },
+    {
+      "name": "Automation",
+      "id": "2"
+    }
+  ],
+  "triggerCount": 2,
+  "pinData": {}
+}

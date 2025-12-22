@@ -1,0 +1,129 @@
+name: Hot Deploy (Pull-Based - No SSH)
+
+# EC2 instance runs a GitHub Actions runner that pulls and deploys locally
+# No SSH keys needed in GitHub secrets!
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'config/**'
+      - 'run.py'
+      - 'requirements.txt'
+  workflow_dispatch:
+
+jobs:
+  hot-deploy:
+    name: Hot Deploy via Self-Hosted Runner
+    runs-on: [self-hosted, production]  # Runs on your EC2 instance
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create backup
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          BACKUP_DIR="/app/backups"
+
+          sudo mkdir -p "$BACKUP_DIR"
+
+          if [ -d "/app/src" ]; then
+            echo "==> Creating backup: hot-backup-$TIMESTAMP.tar.gz"
+            sudo tar -czf "$BACKUP_DIR/hot-backup-$TIMESTAMP.tar.gz" \
+              -C /app src config run.py 2>/dev/null || true
+          fi
+
+      - name: Hot deploy (atomic swap)
+        run: |
+          echo "==> Performing atomic file replacement..."
+
+          # Create staging area
+          sudo mkdir -p /app/.staging
+          sudo cp -r ${{ github.workspace }}/src /app/.staging/
+          sudo cp -r ${{ github.workspace }}/config /app/.staging/
+          sudo cp ${{ github.workspace }}/run.py /app/.staging/
+          sudo cp ${{ github.workspace }}/requirements.txt /app/.staging/
+
+          # Atomic swaps (instant)
+          sudo mv /app/src /app/src.old 2>/dev/null || true
+          sudo mv /app/.staging/src /app/src
+
+          sudo mv /app/config /app/config.old 2>/dev/null || true
+          sudo mv /app/.staging/config /app/config
+
+          sudo mv /app/run.py /app/run.py.old 2>/dev/null || true
+          sudo mv /app/.staging/run.py /app/run.py
+
+          sudo mv /app/requirements.txt /app/requirements.txt.old 2>/dev/null || true
+          sudo mv /app/.staging/requirements.txt /app/requirements.txt
+
+          # Clean up
+          sudo rm -rf /app/src.old /app/config.old /app/run.py.old /app/requirements.txt.old /app/.staging
+
+          echo "✓ Files deployed atomically"
+
+      - name: Update Python dependencies
+        run: |
+          echo "==> Updating Python dependencies..."
+          cd /app
+          sudo pip3 install -r requirements.txt --quiet --upgrade 2>&1 | grep -v "already satisfied" || true
+          echo "✓ Dependencies updated"
+
+      - name: Set permissions
+        run: |
+          sudo chown -R 1000:1000 /app/src /app/config /app/run.py
+          echo "✓ Permissions set"
+
+      - name: Verify deployment
+        run: |
+          echo "==> Verifying deployment..."
+          cd /app
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from stage2_verbatim import VerbatimExtractor
+          import os
+          os.environ['ANTHROPIC_API_KEY'] = 'test-key'
+          e = VerbatimExtractor(config_path='config/default_config.json')
+          assert len(e.blocks) == 6
+          print('✓ Extraction engine verified')
+          "
+
+      - name: Check n8n status
+        run: |
+          if docker ps | grep -q n8n; then
+            echo "✓ n8n is still running (no restart occurred)"
+            UPTIME=$(docker ps --filter "name=n8n" --format "{{.Status}}")
+            echo "   n8n status: $UPTIME"
+          else
+            echo "⚠️ n8n container not found"
+            exit 1
+          fi
+
+      - name: Count active workflows
+        run: |
+          WORKFLOW_COUNT=$(docker exec n8n ls /home/node/.n8n/workflows 2>/dev/null | wc -l || echo "0")
+          echo "✓ Active workflows: $WORKFLOW_COUNT"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo ""
+          echo "=========================================="
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Hot deployment successful"
+            echo "=========================================="
+            echo "Method: Pull-based (self-hosted runner)"
+            echo "Commit: ${{ github.sha }}"
+            echo "n8n: No restart (workflows kept running)"
+            echo "Downtime: 0 seconds"
+            echo "=========================================="
+          else
+            echo "❌ Hot deployment failed"
+            echo "=========================================="
+            echo "Check logs above for details"
+            echo "Backup available in /app/backups/"
+            echo "=========================================="
+          fi

@@ -1,0 +1,126 @@
+{
+  "_comment": "EXAMPLE: Custom configuration for crypto/tech companies",
+
+  "prompts": {
+    "system_prompt": "You are a TAX WORKPAPER EVIDENCE EXTRACTOR for SEC 10-K filings.\n\nMISSION\nCreate an audit-ready evidence binder for tax method-change analysis by extracting ONLY verbatim quotes from the provided document text. This is not a summary task.\n\nNON-NEGOTIABLE RULES\n1) VERBATIM ONLY: Every quote must be copied exactly from the provided text. Never paraphrase. Never \"clean up\" wording.\n2) PAGE REQUIRED: Every quote must include the page number from the nearest preceding [PAGE X] marker.\n3) NO HALLUCINATIONS: If evidence is not present for a category, return an empty evidence array for that category.\n4) JSON ONLY: Output must be valid JSON only. No prose, no markdown.\n5) CONTIGUOUS TEXT ONLY: Do not stitch together text from multiple locations. Each quote must be a single continuous excerpt from one area of the document.\n6) EVIDENCE QUALITY: Prefer accounting policy language and disclosure language (Notes / Significant Accounting Policies). Avoid headings-only unless nothing else exists.\n7) LENGTH: Each evidence quote should typically be 2-8 sentences or one detailed paragraph (provide more context for complex transactions).\n8) TRACEABILITY: Include the keyword/trigger you used and a short section label (best-effort).\n\nSECTION LABELING (best-effort)\n- If nearby text includes \"Note\", \"Notes to Consolidated Financial Statements\", \"Significant Accounting Policies\" → section=\"Notes\"\n- If includes \"Item 7\" or \"Management's Discussion and Analysis\" → section=\"MD&A\"\n- If includes \"Balance Sheets\", \"Statements of Operations\", \"Statements of Cash Flows\" → section=\"Financial Statements\"\n- Else section=\"Other\"\n\nCONFIDENCE\n- HIGH: direct policy/disclosure text clearly about the category with specific dollar amounts or dates\n- MEDIUM: relevant but indirect disclosure or mixed content\n- LOW: weak match (keyword appears but context is unclear)\n\nRETURN STRUCTURE\nReturn JSON exactly matching the schema provided in the user prompt.",
+
+    "user_prompt_template": "Extract an audit-ready evidence binder from this 10-K excerpt.\n\nCATEGORIES (extract 1–3 evidence quotes per category):\n{categories}\n\nINSTRUCTIONS\n- Use keywords to locate relevant passages.\n- Extract the surrounding paragraph or 2–8 sentences around the hit (more context is better).\n- Each quote MUST be copied exactly as-is from the document text.\n- Each quote MUST include the page number from [PAGE X].\n- If nothing found, evidence array must be [] for that category.\n\nOUTPUT JSON SCHEMA (exactly):\n{{\n  \"document_id\": \"{document_id}\",\n  \"block\": \"{block_name}\",\n  \"extractions\": [\n    {{\n      \"category\": \"<Category Name>\",\n      \"evidence\": [\n        {{\n          \"text\": \"<verbatim quote>\",\n          \"page\": <integer>,\n          \"section\": \"<Notes | MD&A | Financial Statements | Other>\",\n          \"match_keyword\": \"<keyword used>\",\n          \"confidence\": \"HIGH | MEDIUM | LOW\"\n        }}\n      ]\n    }}\n  ],\n  \"audit\": [\n    {{ \"category\": \"<Category Name>\", \"keyword\": \"<keyword>\", \"page\": <integer> }}\n  ]\n}}\n\nDOCUMENT_ID: {document_id}\n\nDOCUMENT TEXT (contains [PAGE X] markers):\n{document_text}"
+  },
+
+  "blocks": {
+    "Fixed Assets": {
+      "categories": {
+        "Depreciation/Amortization": [
+          "depreciation",
+          "amortization",
+          "useful life",
+          "straight-line",
+          "accelerated depreciation"
+        ],
+        "Software & Technology": [
+          "capitalized software",
+          "software development costs",
+          "internal-use software",
+          "cloud computing",
+          "SaaS",
+          "platform development"
+        ],
+        "Digital Assets": [
+          "cryptocurrency",
+          "digital assets",
+          "bitcoin",
+          "ethereum",
+          "blockchain",
+          "crypto",
+          "virtual currency"
+        ],
+        "Property, Plant & Equipment": [
+          "property, plant and equipment",
+          "PP&E",
+          "data centers",
+          "server equipment",
+          "computer equipment"
+        ]
+      },
+      "priority_sections": ["notes", "accounting_policies", "md&a"]
+    },
+
+    "R&D": {
+      "categories": {
+        "Research & Development": [
+          "research and development",
+          "R&D",
+          "development costs",
+          "capitalized software",
+          "product development",
+          "engineering costs",
+          "innovation"
+        ]
+      },
+      "priority_sections": ["notes", "md&a"]
+    },
+
+    "Tax": {
+      "categories": {
+        "Section 163(j)": [
+          "163(j)",
+          "business interest",
+          "interest limitation",
+          "interest expense limitation"
+        ],
+        "Deferred Tax (DTL/DTA)": [
+          "deferred tax",
+          "deferred tax assets",
+          "deferred tax liabilities",
+          "valuation allowance",
+          "NOL",
+          "net operating loss"
+        ],
+        "Stock-Based Compensation": [
+          "stock-based compensation",
+          "RSU",
+          "restricted stock units",
+          "stock options",
+          "equity compensation",
+          "ASC 718"
+        ],
+        "Revenue Recognition": [
+          "revenue recognition",
+          "ASC 606",
+          "performance obligation",
+          "subscription revenue",
+          "recurring revenue"
+        ]
+      },
+      "priority_sections": ["notes", "accounting_policies", "md&a"]
+    },
+
+    "Financial Statements": {
+      "categories": {
+        "Income Statement": [
+          "consolidated statements of operations",
+          "statement of operations",
+          "total revenue",
+          "net income"
+        ],
+        "Balance Sheet": [
+          "consolidated balance sheets",
+          "total assets",
+          "total liabilities"
+        ],
+        "Cash Flow": [
+          "consolidated statements of cash flows",
+          "operating activities",
+          "free cash flow"
+        ]
+      },
+      "priority_sections": ["financial_statements", "notes"]
+    }
+  },
+
+  "model": {
+    "name": "claude-sonnet-4-20250514",
+    "input_cost_per_m": 3.00,
+    "output_cost_per_m": 15.00
+  }
+}

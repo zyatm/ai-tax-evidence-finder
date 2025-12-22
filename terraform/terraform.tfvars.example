@@ -1,0 +1,28 @@
+# Copy this file to terraform.tfvars and customize
+
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Project naming (used as prefix for all resources)
+project_name = "n8n"
+
+# EC2 Configuration
+instance_type    = "t3.small"    # t3.small for light use, t3.medium for heavier workloads
+root_volume_size = 30            # GB
+
+# Your domain name - REQUIRED
+# Must have DNS control to point A record to the server
+domain_name = "n8n.yourdomain.com"
+
+# EC2 Key Pair - REQUIRED
+# Create one in AWS Console > EC2 > Key Pairs if you don't have one
+key_name = "your-key-pair-name"
+
+# Security - Restrict SSH access
+# Find your IP at whatismyip.com and use "x.x.x.x/32"
+# Use "0.0.0.0/0" to allow from anywhere (not recommended for production)
+allowed_ssh_cidr = "0.0.0.0/0"
+
+# n8n Configuration
+n8n_version = "latest"           # Or pin to specific version like "1.20.0"
+timezone    = "America/New_York" # Your timezone

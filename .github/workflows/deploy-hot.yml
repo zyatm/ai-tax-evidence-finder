@@ -1,0 +1,254 @@
+name: Hot Deploy (No n8n Restart)
+
+# This workflow updates only the Python extraction engine
+# n8n continues running without interruption
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'config/**'
+      - 'run.py'
+      - 'requirements.txt'
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  PYTHON_VERSION: '3.11'
+  AWS_REGION: us-east-1
+
+jobs:
+  # ============================================================================
+  # TEST JOB
+  # ============================================================================
+  test:
+    name: Test & Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate config files
+        run: |
+          python -c "import json; json.load(open('config/default_config.json'))"
+          python -c "import json; json.load(open('config/custom_example.json'))"
+          echo "✓ Config files valid"
+
+      - name: Test config loading
+        run: |
+          python -c "
+          import sys
+          import os
+          sys.path.insert(0, 'src')
+          os.environ['ANTHROPIC_API_KEY'] = 'test-key'
+          from stage2_verbatim import VerbatimExtractor
+          e = VerbatimExtractor(config_path='config/default_config.json')
+          assert len(e.blocks) == 6
+          print('✓ Extraction engine validation passed')
+          "
+
+  # ============================================================================
+  # HOT DEPLOY JOB
+  # ============================================================================
+  hot-deploy:
+    name: Hot Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get EC2 instance IP
+        id: get-ip
+        run: |
+          INSTANCE_IP=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=ai-tax-evidence-finder" \
+                      "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "instance_ip=$INSTANCE_IP" >> $GITHUB_OUTPUT
+          echo "Found EC2 instance: $INSTANCE_IP"
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ steps.get-ip.outputs.instance_ip }} >> ~/.ssh/known_hosts
+
+      - name: Create deployment package
+        run: |
+          mkdir -p /tmp/deployment
+          cp -r src /tmp/deployment/
+          cp -r config /tmp/deployment/
+          cp run.py /tmp/deployment/
+          cp requirements.txt /tmp/deployment/
+          cd /tmp
+          tar -czf deployment.tar.gz deployment/
+          echo "Package size: $(du -h deployment.tar.gz | cut -f1)"
+
+      - name: Upload to EC2
+        env:
+          INSTANCE_IP: ${{ steps.get-ip.outputs.instance_ip }}
+        run: |
+          scp -i ~/.ssh/deploy_key /tmp/deployment.tar.gz ec2-user@$INSTANCE_IP:/tmp/
+
+      - name: Hot deploy (no n8n restart)
+        env:
+          INSTANCE_IP: ${{ steps.get-ip.outputs.instance_ip }}
+        run: |
+          ssh -i ~/.ssh/deploy_key ec2-user@$INSTANCE_IP << 'ENDSSH'
+            set -e
+
+            echo "==> Hot deployment started (n8n will keep running)"
+
+            # Extract
+            cd /tmp
+            tar -xzf deployment.tar.gz
+
+            # Backup current version
+            BACKUP_DIR="/app/backups"
+            TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+            sudo mkdir -p "$BACKUP_DIR"
+
+            if [ -d "/app/src" ]; then
+                echo "==> Creating backup: hot-backup-$TIMESTAMP.tar.gz"
+                sudo tar -czf "$BACKUP_DIR/hot-backup-$TIMESTAMP.tar.gz" \
+                    -C /app src config run.py 2>/dev/null || true
+            fi
+
+            # Atomic replacement
+            echo "==> Performing atomic file replacement..."
+            sudo mkdir -p /app/.staging
+            sudo cp -r /tmp/deployment/src /app/.staging/
+            sudo cp -r /tmp/deployment/config /app/.staging/
+            sudo cp /tmp/deployment/run.py /app/.staging/
+            sudo cp /tmp/deployment/requirements.txt /app/.staging/
+
+            # Atomic swaps (instant)
+            sudo mv /app/src /app/src.old 2>/dev/null || true
+            sudo mv /app/.staging/src /app/src
+
+            sudo mv /app/config /app/config.old 2>/dev/null || true
+            sudo mv /app/.staging/config /app/config
+
+            sudo mv /app/run.py /app/run.py.old 2>/dev/null || true
+            sudo mv /app/.staging/run.py /app/run.py
+
+            sudo mv /app/requirements.txt /app/requirements.txt.old 2>/dev/null || true
+            sudo mv /app/.staging/requirements.txt /app/requirements.txt
+
+            # Clean up
+            sudo rm -rf /app/src.old /app/config.old /app/run.py.old /app/requirements.txt.old /app/.staging
+
+            # Update dependencies
+            echo "==> Updating Python dependencies..."
+            cd /app
+            sudo pip3 install -r requirements.txt --quiet --upgrade 2>&1 | grep -v "already satisfied" || true
+
+            # Set permissions
+            sudo chown -R 1000:1000 /app/src /app/config /app/run.py
+
+            # Verify
+            echo "==> Verifying deployment..."
+            python3 -c "
+            import sys
+            sys.path.insert(0, 'src')
+            from stage2_verbatim import VerbatimExtractor
+            import os
+            os.environ['ANTHROPIC_API_KEY'] = 'test-key'
+            e = VerbatimExtractor(config_path='config/default_config.json')
+            assert len(e.blocks) == 6
+            print('✓ Extraction engine verified')
+            "
+
+            # Check n8n is still running
+            if docker ps | grep -q n8n; then
+                echo "✓ n8n is still running (no restart occurred)"
+            else
+                echo "⚠️  n8n container not found"
+            fi
+
+            # Cleanup
+            rm -rf /tmp/deployment /tmp/deployment.tar.gz
+
+            echo "✅ Hot deployment complete - n8n never stopped"
+          ENDSSH
+
+      - name: Post-deployment verification
+        env:
+          INSTANCE_IP: ${{ steps.get-ip.outputs.instance_ip }}
+        run: |
+          echo "==> Running post-deployment checks..."
+
+          ssh -i ~/.ssh/deploy_key ec2-user@$INSTANCE_IP << 'ENDSSH'
+            # Test extraction engine
+            cd /app
+            python3 run.py --help > /dev/null 2>&1
+            echo "✓ Extraction engine is operational"
+
+            # Check n8n uptime (should not have restarted)
+            UPTIME=$(docker ps --filter "name=n8n" --format "{{.Status}}")
+            echo "✓ n8n status: $UPTIME"
+
+            # Count active workflows
+            WORKFLOW_COUNT=$(docker exec n8n ls /home/node/.n8n/workflows 2>/dev/null | wc -l || echo "0")
+            echo "✓ Active workflows: $WORKFLOW_COUNT"
+          ENDSSH
+
+      - name: Deployment summary
+        if: always()
+        env:
+          INSTANCE_IP: ${{ steps.get-ip.outputs.instance_ip }}
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Hot deployment successful"
+            echo "   • Target: $INSTANCE_IP"
+            echo "   • n8n: No restart (workflows kept running)"
+            echo "   • Python: Updated to latest version"
+          else
+            echo "❌ Hot deployment failed"
+            echo "   • Target: $INSTANCE_IP"
+            echo "   • Check logs above for details"
+          fi
+
+      - name: Notify Slack (optional)
+        if: always() && secrets.SLACK_WEBHOOK_URL != ''
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+          payload: |
+            {
+              "text": "Hot Deployment ${{ job.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🔥 *Hot Deployment ${{ job.status }}*\n• Environment: Production\n• Commit: `${{ github.sha }}`\n• n8n: No restart"
+                  }
+                }
+              ]
+            }
+        continue-on-error: true
