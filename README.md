@@ -137,22 +137,31 @@ Creates: EC2 instance with n8n workflow automation, Caddy SSL, extraction engine
 
 ## CI/CD Pipeline
 
-The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs tests, builds Docker images, and deploys to EC2.
+The GitHub Actions workflow (`.github/workflows/deploy-hot-pull.yml`) runs tests and deploys using a self-hosted runner.
 
-### Required Secrets (Optional)
+### How It Works
 
-Configure these in GitHub repository Settings → Secrets:
+1. **Test job** - Runs on GitHub's hosted runners (free, no credentials needed)
+2. **Deploy job** - Runs on your EC2 via self-hosted runner (no secrets required)
 
-| Secret | Required For | Description |
-|--------|--------------|-------------|
-| `DOCKER_USERNAME` | Docker Hub push | Docker Hub username |
-| `DOCKER_PASSWORD` | Docker Hub push | Docker Hub password/token |
-| `AWS_ACCESS_KEY_ID` | ECR/Deploy | AWS IAM access key |
-| `AWS_SECRET_ACCESS_KEY` | ECR/Deploy | AWS IAM secret key |
-| `EC2_SSH_PRIVATE_KEY` | Deploy | SSH key for EC2 instance |
-| `ANTHROPIC_API_KEY` | Smoke tests | API key for post-deploy tests |
+### Self-Hosted Runner Setup
 
-**Note:** The pipeline will still run tests and build Docker images locally without these secrets. Push/deploy steps are skipped when credentials are missing.
+On your EC2 instance:
+
+```bash
+# Download and configure runner (one-time setup)
+# Get the token from: GitHub repo → Settings → Actions → Runners → New self-hosted runner
+
+cd /opt
+mkdir actions-runner && cd actions-runner
+curl -o actions-runner-linux-x64-2.321.0.tar.gz -L https://github.com/actions/runner/releases/download/v2.321.0/actions-runner-linux-x64-2.321.0.tar.gz
+tar xzf ./actions-runner-linux-x64-2.321.0.tar.gz
+./config.sh --url https://github.com/YOUR_USERNAME/ai-tax-evidence-finder --token YOUR_TOKEN --labels production
+sudo ./svc.sh install
+sudo ./svc.sh start
+```
+
+No GitHub secrets are required - the runner has local access to deploy.
 
 ## API Usage
 
