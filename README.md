@@ -1,4 +1,5 @@
-# AI Tax Intelligence
+# AI Tax Intelligence updated secondary setup 
+
 
 Automated extraction of financial evidence from SEC 10-K filings for tax method change analysis.
 
