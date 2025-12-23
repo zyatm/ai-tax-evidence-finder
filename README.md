@@ -1,7 +1,7 @@
 # AI Tax Intelligence updated secondary setup 
 
 
-Automated extraction of financial evidence from SEC 10-K filings for tax method change analysis.
+Automated extraction of financial evidence from SEC 10-K filings for tax method change analysis. 
 
 ## Project Structure
 
@@ -54,7 +54,7 @@ The extraction produces:
    - Relevance-scored chunk selection
    - Verbatim quote extraction with verification
 
-### Blocks & Categories
+### Blocks & Categories (First Round)
 
 | Block | Categories |
 |-------|------------|
@@ -65,7 +65,7 @@ The extraction produces:
 | **Financial Statements** | Income Statement, Balance Sheet, Cash Flow |
 | **Business Overview** | Business Description |
 
-### Key Features
+### Key Features 
 
 - **Relevance-Scored Chunking**: Prioritizes chunks with financial specifics (dollar amounts, dates) over generic language
 - **Verbatim Extraction**: Exact quotes only, never paraphrased
