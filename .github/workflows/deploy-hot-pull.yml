@@ -154,9 +154,41 @@ jobs:
           fi
         continue-on-error: true
 
+      - name: Deploy n8n workflows
+        run: |
+          echo "==> Deploying n8n workflows..."
+          WORKFLOW_DIR="${{ github.workspace }}/n8n/workflows"
+
+          if [ -d "$WORKFLOW_DIR" ] && [ "$(ls -A $WORKFLOW_DIR/*.json 2>/dev/null)" ]; then
+            for workflow_file in $WORKFLOW_DIR/*.json; do
+              workflow_name=$(basename "$workflow_file" .json)
+              echo "  • Importing: $workflow_name"
+
+              # Copy workflow to container and import
+              sudo docker cp "$workflow_file" n8n:/tmp/workflow.json
+              sudo docker exec n8n n8n import:workflow --input=/tmp/workflow.json 2>&1 || true
+              sudo docker exec n8n rm /tmp/workflow.json
+
+              echo "    ✓ Imported"
+            done
+
+            # Activate all inactive workflows
+            echo "==> Activating workflows..."
+            sudo docker exec n8n n8n list:workflow --json 2>/dev/null | \
+              jq -r '.[] | select(.active == false) | .id' | \
+              while read workflow_id; do
+                if [ -n "$workflow_id" ]; then
+                  sudo docker exec n8n n8n update:workflow --id="$workflow_id" --active=true 2>/dev/null || true
+                  echo "  ✓ Activated workflow ID: $workflow_id"
+                fi
+              done
+          else
+            echo "  No workflow files found in $WORKFLOW_DIR"
+          fi
+
       - name: Count active workflows
         run: |
-          WORKFLOW_COUNT=$(sudo docker exec n8n ls /home/node/.n8n/workflows 2>/dev/null | wc -l || echo "0")
+          WORKFLOW_COUNT=$(sudo docker exec n8n n8n list:workflow --json 2>/dev/null | jq length || echo "0")
           echo "✓ Active workflows: $WORKFLOW_COUNT"
 
       - name: Deployment summary
