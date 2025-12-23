@@ -166,8 +166,9 @@ jobs:
 
               # Copy workflow to container and import
               sudo docker cp "$workflow_file" n8n:/tmp/workflow.json
-              sudo docker exec n8n n8n import:workflow --input=/tmp/workflow.json 2>&1 || true
-              sudo docker exec n8n rm /tmp/workflow.json
+              sudo docker exec n8n chmod 644 /tmp/workflow.json
+              sudo docker exec -u root n8n n8n import:workflow --input=/tmp/workflow.json 2>&1 || true
+              sudo docker exec -u root n8n rm -f /tmp/workflow.json
 
               echo "    ✓ Imported"
             done
