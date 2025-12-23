@@ -1,4 +1,4 @@
-{
+[{
   "name": "SEC 10-K Evidence Extraction",
   "active": false,
   "nodes": [
@@ -311,4 +311,4 @@
   ],
   "triggerCount": 2,
   "pinData": {}
-}
+}]
