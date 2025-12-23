@@ -121,9 +121,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
+          # Only include images where credentials are available
           images: |
-            ${{ secrets.DOCKER_USERNAME }}/ai-tax-evidence-finder
-            ${{ steps.login-ecr.outputs.registry }}/ai-tax-evidence-finder
+            ${{ secrets.DOCKER_USERNAME != '' && format('{0}/ai-tax-evidence-finder', secrets.DOCKER_USERNAME) || '' }}
+            ${{ steps.login-ecr.outputs.registry != '' && format('{0}/ai-tax-evidence-finder', steps.login-ecr.outputs.registry) || '' }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -132,16 +133,19 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
+      - name: Build Docker image (local only if no registry configured)
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          # Only push if we have valid tags (registry credentials configured)
+          push: ${{ github.event_name != 'pull_request' && steps.meta.outputs.tags != '' }}
+          tags: ${{ steps.meta.outputs.tags || 'ai-tax-evidence-finder:local' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Build locally even without push
+          load: ${{ steps.meta.outputs.tags == '' }}
 
   # ============================================================================
   # DEPLOY JOB - Deploys to EC2

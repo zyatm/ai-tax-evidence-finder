@@ -135,6 +135,25 @@ terraform apply
 
 Creates: EC2 instance with n8n workflow automation, Caddy SSL, extraction engine.
 
+## CI/CD Pipeline
+
+The GitHub Actions workflow (`.github/workflows/ci-cd.yml`) runs tests, builds Docker images, and deploys to EC2.
+
+### Required Secrets (Optional)
+
+Configure these in GitHub repository Settings → Secrets:
+
+| Secret | Required For | Description |
+|--------|--------------|-------------|
+| `DOCKER_USERNAME` | Docker Hub push | Docker Hub username |
+| `DOCKER_PASSWORD` | Docker Hub push | Docker Hub password/token |
+| `AWS_ACCESS_KEY_ID` | ECR/Deploy | AWS IAM access key |
+| `AWS_SECRET_ACCESS_KEY` | ECR/Deploy | AWS IAM secret key |
+| `EC2_SSH_PRIVATE_KEY` | Deploy | SSH key for EC2 instance |
+| `ANTHROPIC_API_KEY` | Smoke tests | API key for post-deploy tests |
+
+**Note:** The pipeline will still run tests and build Docker images locally without these secrets. Push/deploy steps are skipped when credentials are missing.
+
 ## API Usage
 
 ### Environment Variables
