@@ -1,7 +1,7 @@
 [{
   "name": "SEC 10-K Evidence Extraction",
   "active": false,
-  "versionId": "4",
+  "versionId": "5",
   "nodes": [
     {
       "parameters": {},
@@ -122,7 +122,7 @@
     },
     {
       "parameters": {
-        "filePath": "=/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx"
+        "filePath": "=/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx"
       },
       "id": "read-output",
       "name": "Read Excel Output",
@@ -138,7 +138,7 @@
           "mode": "id",
           "value": "={{ $('Set Folder IDs').json.input_folder_id }}"
         },
-        "name": "={{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
+        "name": "={{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
         "options": {}
       },
       "id": "upload-excel",
@@ -155,7 +155,7 @@
     },
     {
       "parameters": {
-        "command": "=rm -f \"/app/10k-inbox/{{ $json.name }}\" \"/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx\" \"/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_extraction.json\""
+        "command": "=rm -f \"/app/10k-inbox/{{ $('Split Out Files').json.name }}\" \"/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx\" \"/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_extraction.json\""
       },
       "id": "cleanup",
       "name": "Cleanup Local Files",
