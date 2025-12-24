@@ -87,6 +87,10 @@
               {
                 "name": "input_folder_id",
                 "value": "1paipEIvzF0xyjmUqN6OplJHoaG6u9aEq"
+              },
+              {
+                "name": "output_folder_id",
+                "value": "1tW5CpOf-cVBE3RRQciNTOGrhveJYbc9H"
               }
             ]
           },
@@ -196,16 +200,39 @@
       },
       {
         "parameters": {
-          "command": "=test -f \"{{ $json.excel_path }}\" && echo 'EXISTS' || echo 'NOT_EXISTS'"
+          "method": "GET",
+          "url": "https://www.googleapis.com/drive/v3/files",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "googleDriveOAuth2Api",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "q",
+                "value": "='{{ $('Set Folder IDs').first().json.output_folder_id }}' in parents and name='{{ $json.base_name }}_evidence_binder.xlsx'"
+              },
+              {
+                "name": "fields",
+                "value": "files(id,name)"
+              }
+            ]
+          },
+          "options": {}
         },
         "id": "check-file-exists",
-        "name": "Check File Exists",
-        "type": "n8n-nodes-base.executeCommand",
-        "typeVersion": 1,
+        "name": "Check Output Exists",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
         "position": [
           1340,
           300
-        ]
+        ],
+        "credentials": {
+          "googleDriveOAuth2Api": {
+            "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+            "name": "Google Drive account"
+          }
+        }
       },
       {
         "parameters": {
@@ -213,16 +240,16 @@
             "options": {
               "caseSensitive": true,
               "leftValue": "",
-              "typeValidation": "strict"
+              "typeValidation": "loose"
             },
             "conditions": [
               {
                 "id": "condition-exists",
-                "leftValue": "={{ $json.stdout.trim() }}",
-                "rightValue": "EXISTS",
+                "leftValue": "={{ $json.files.length }}",
+                "rightValue": "0",
                 "operator": {
-                  "type": "string",
-                  "operation": "equals"
+                  "type": "number",
+                  "operation": "gt"
                 }
               }
             ],
@@ -240,12 +267,10 @@
         ]
       },
       {
-        "parameters": {
-          "filePath": "={{ $('Set File Info').first().json.excel_path }}"
-        },
-        "id": "read-existing-output",
-        "name": "Read Existing Excel",
-        "type": "n8n-nodes-base.readBinaryFile",
+        "parameters": {},
+        "id": "skip-already-processed",
+        "name": "Skip (Already Processed)",
+        "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
         "position": [
           1780,
@@ -327,7 +352,7 @@
           "folderId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set Folder IDs').first().json.input_folder_id }}"
+            "value": "={{ $('Set Folder IDs').first().json.output_folder_id }}"
           },
           "name": "={{ $('Set File Info').first().json.base_name }}_evidence_binder.xlsx",
           "options": {}
@@ -433,14 +458,14 @@
         "main": [
           [
             {
-              "node": "Check File Exists",
+              "node": "Check Output Exists",
               "type": "main",
               "index": 0
             }
           ]
         ]
       },
-      "Check File Exists": {
+      "Check Output Exists": {
         "main": [
           [
             {
@@ -455,7 +480,7 @@
         "main": [
           [
             {
-              "node": "Read Existing Excel",
+              "node": "Skip (Already Processed)",
               "type": "main",
               "index": 0
             }
@@ -463,17 +488,6 @@
           [
             {
               "node": "Download PDF",
-              "type": "main",
-              "index": 0
-            }
-          ]
-        ]
-      },
-      "Read Existing Excel": {
-        "main": [
-          [
-            {
-              "node": "Upload to Google Drive",
               "type": "main",
               "index": 0
             }
