@@ -169,12 +169,26 @@ $DOMAIN_NAME {
 EOF
 
 # Create docker-compose.yml
+cat > /opt/n8n/Dockerfile <<'DOCKERFILE'
+FROM n8nio/n8n:latest
+
+USER root
+
+# Install Python and dependencies
+RUN apk add --no-cache python3 py3-pip && \
+    pip3 install --break-system-packages pdfplumber openpyxl pandas anthropic
+
+USER node
+DOCKERFILE
+
 cat > /opt/n8n/docker-compose.yml <<EOF
 version: '3.8'
 
 services:
   n8n:
-    image: n8nio/n8n:$N8N_VERSION
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: n8n
     restart: unless-stopped
     environment:
@@ -186,6 +200,7 @@ services:
       - GENERIC_TIMEZONE=$TIMEZONE
       - TZ=$TIMEZONE
       - N8N_SECURE_COOKIE=true
+      - ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY}
     volumes:
       - /opt/n8n/data:/home/node/.n8n
       - /app:/app

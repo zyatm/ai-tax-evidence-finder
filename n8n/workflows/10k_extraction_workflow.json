@@ -1,7 +1,7 @@
 [{
   "name": "SEC 10-K Evidence Extraction",
   "active": false,
-  "versionId": "3",
+  "versionId": "4",
   "nodes": [
     {
       "parameters": {},
@@ -13,28 +13,65 @@
     },
     {
       "parameters": {
-        "operation": "list",
-        "folderId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "={{ $json.input_folder_id }}"
-        },
-        "filter": {
-          "mimeType": "application/pdf"
+        "values": {
+          "string": [
+            {
+              "name": "input_folder_id",
+              "value": "1paipEIvzF0xyjmUqN6OplJHoaG6u9aEq"
+            }
+          ]
         },
         "options": {}
       },
-      "id": "list-drive-files",
+      "id": "set-folder-ids",
+      "name": "Set Folder IDs",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/drive/v3/files",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "='{{ $json.input_folder_id }}' in parents and mimeType='application/pdf'"
+            },
+            {
+              "name": "fields",
+              "value": "files(id,name)"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "list-pdfs",
       "name": "List PDFs in Folder",
-      "type": "n8n-nodes-base.googleDrive",
-      "typeVersion": 3,
-      "position": [460, 300],
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
-          "name": "Google Drive OAuth2"
+          "name": "Google Drive account"
         }
       }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "files",
+        "options": {}
+      },
+      "id": "split-files",
+      "name": "Split Out Files",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [900, 300]
     },
     {
       "parameters": {
@@ -50,11 +87,11 @@
       "name": "Download PDF",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [680, 300],
+      "position": [1120, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
-          "name": "Google Drive OAuth2"
+          "name": "Google Drive account"
         }
       }
     },
@@ -68,17 +105,20 @@
       "name": "Save PDF to Disk",
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
-      "position": [900, 300]
+      "position": [1340, 300]
     },
     {
       "parameters": {
-        "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $json.name }}\" --output /app/output"
+        "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $json.name }}\" --output /app/output",
+        "options": {
+          "timeout": 600000
+        }
       },
       "id": "run-extraction",
-      "name": "Run Extraction Script",
+      "name": "Run Extraction",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1120, 300]
+      "position": [1560, 300]
     },
     {
       "parameters": {
@@ -88,7 +128,7 @@
       "name": "Read Excel Output",
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
-      "position": [1340, 300]
+      "position": [1780, 300]
     },
     {
       "parameters": {
@@ -96,7 +136,7 @@
         "folderId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ $('Manual Trigger').json.output_folder_id || $('Manual Trigger').json.input_folder_id }}"
+          "value": "={{ $('Set Folder IDs').json.input_folder_id }}"
         },
         "name": "={{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
         "options": {}
@@ -105,11 +145,11 @@
       "name": "Upload to Google Drive",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1560, 300],
+      "position": [2000, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
-          "name": "Google Drive OAuth2"
+          "name": "Google Drive account"
         }
       }
     },
@@ -121,29 +161,7 @@
       "name": "Cleanup Local Files",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1780, 300]
-    },
-    {
-      "parameters": {
-        "values": {
-          "string": [
-            {
-              "name": "input_folder_id",
-              "value": "YOUR_GOOGLE_DRIVE_FOLDER_ID"
-            },
-            {
-              "name": "output_folder_id",
-              "value": ""
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "set-folder-ids",
-      "name": "Set Folder IDs",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [240, 300]
+      "position": [2220, 300]
     }
   ],
   "connections": {
@@ -173,6 +191,17 @@
       "main": [
         [
           {
+            "node": "Split Out Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out Files": {
+      "main": [
+        [
+          {
             "node": "Download PDF",
             "type": "main",
             "index": 0
@@ -195,14 +224,14 @@
       "main": [
         [
           {
-            "node": "Run Extraction Script",
+            "node": "Run Extraction",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Run Extraction Script": {
+    "Run Extraction": {
       "main": [
         [
           {
@@ -240,16 +269,7 @@
     "executionOrder": "v1"
   },
   "staticData": null,
-  "tags": [
-    {
-      "name": "SEC",
-      "id": "1"
-    },
-    {
-      "name": "Google Drive",
-      "id": "2"
-    }
-  ],
+  "tags": [],
   "triggerCount": 1,
   "pinData": {}
 }]
