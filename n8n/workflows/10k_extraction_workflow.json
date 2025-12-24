@@ -184,6 +184,18 @@
                 "name": "excel_path",
                 "value": "=/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
                 "type": "string"
+              },
+              {
+                "id": "input_folder_id",
+                "name": "input_folder_id",
+                "value": "=1paipEIvzF0xyjmUqN6OplJHoaG6u9aEq",
+                "type": "string"
+              },
+              {
+                "id": "output_folder_id",
+                "name": "output_folder_id",
+                "value": "=1tW5CpOf-cVBE3RRQciNTOGrhveJYbc9H",
+                "type": "string"
               }
             ]
           },
@@ -209,7 +221,7 @@
             "parameters": [
               {
                 "name": "q",
-                "value": "='{{ $('Set Folder IDs').first().json.output_folder_id }}' in parents and name='{{ $json.base_name }}_evidence_binder.xlsx'"
+                "value": "='{{ $json.output_folder_id }}' in parents and name='{{ $json.base_name }}_evidence_binder.xlsx'"
               },
               {
                 "name": "fields",
@@ -352,7 +364,7 @@
           "folderId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set Folder IDs').first().json.output_folder_id }}"
+            "value": "={{ $('Set File Info').first().json.output_folder_id }}"
           },
           "name": "={{ $('Set File Info').first().json.base_name }}_evidence_binder.xlsx",
           "options": {}
