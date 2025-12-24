@@ -2,7 +2,7 @@
   {
     "name": "SEC 10-K Evidence Extraction",
     "active": false,
-    "versionId": "8",
+    "versionId": "9",
     "nodes": [
       {
         "parameters": {},
@@ -245,7 +245,7 @@
       },
       {
         "parameters": {
-          "filePath": "=/app/output/{{ $('List PDFs in Folder').item.json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx"
+          "filePath": "={{ $('Set File Info').json.excel_path }}"
         },
         "id": "read-output",
         "name": "Read Excel Output",
@@ -284,7 +284,7 @@
       },
       {
         "parameters": {
-          "command": "=rm -f \"/app/10k-inbox/{{ $('List PDFs in Folder').item.json.name }}\" \"/app/output/{{ $('List PDFs in Folder').item.json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx\" \"/app/output/{{ $('List PDFs in Folder').item.json.name.replace('.pdf', '').replace('.PDF', '') }}_extraction.json\""
+          "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').json.file_name }}\" \"{{ $('Set File Info').json.excel_path }}\" \"/app/output/{{ $('Set File Info').json.base_name }}_extraction.json\""
         },
         "id": "cleanup",
         "name": "Cleanup Local Files",
