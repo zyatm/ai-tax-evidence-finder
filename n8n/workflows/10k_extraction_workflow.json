@@ -1,7 +1,7 @@
 [{
   "name": "SEC 10-K Evidence Extraction",
   "active": false,
-  "versionId": "7",
+  "versionId": "8",
   "nodes": [
     {
       "parameters": {},
@@ -75,13 +75,53 @@
     },
     {
       "parameters": {
-        "command": "=test -f \"/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx\" && echo 'EXISTS' || echo 'NOT_EXISTS'"
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "file_id",
+              "name": "file_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "file_name",
+              "name": "file_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "base_name",
+              "name": "base_name",
+              "value": "={{ $json.name.replace('.pdf', '').replace('.PDF', '') }}",
+              "type": "string"
+            },
+            {
+              "id": "excel_path",
+              "name": "excel_path",
+              "value": "=/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-file-info",
+      "name": "Set File Info",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "command": "=test -f \"{{ $json.excel_path }}\" && echo 'EXISTS' || echo 'NOT_EXISTS'"
       },
       "id": "check-file-exists",
       "name": "Check File Exists",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [1120, 300]
+      "position": [1340, 300]
     },
     {
       "parameters": {
@@ -110,17 +150,17 @@
       "name": "File Already Processed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1340, 300]
+      "position": [1560, 300]
     },
     {
       "parameters": {
-        "filePath": "=/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx"
+        "filePath": "={{ $('Set File Info').json.excel_path }}"
       },
       "id": "read-existing-output",
       "name": "Read Existing Excel",
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
-      "position": [1560, 200]
+      "position": [1780, 200]
     },
     {
       "parameters": {
@@ -128,7 +168,7 @@
         "fileId": {
           "__rl": true,
           "mode": "id",
-          "value": "={{ $('Split Out Files').json.id }}"
+          "value": "={{ $('Set File Info').json.file_id }}"
         },
         "options": {}
       },
@@ -136,7 +176,7 @@
       "name": "Download PDF",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [1560, 400],
+      "position": [1780, 400],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
@@ -147,18 +187,18 @@
     {
       "parameters": {
         "operation": "write",
-        "fileName": "=/app/10k-inbox/{{ $('Split Out Files').json.name }}",
+        "fileName": "=/app/10k-inbox/{{ $('Set File Info').json.file_name }}",
         "options": {}
       },
       "id": "save-pdf",
       "name": "Save PDF to Disk",
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
-      "position": [1780, 400]
+      "position": [2000, 400]
     },
     {
       "parameters": {
-        "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Split Out Files').json.name }}\" --output /app/output",
+        "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Set File Info').json.file_name }}\" --output /app/output",
         "options": {
           "timeout": 600000
         }
@@ -167,7 +207,7 @@
       "name": "Run Extraction",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [2000, 400]
+      "position": [2220, 400]
     },
     {
       "parameters": {
@@ -177,7 +217,7 @@
       "name": "Read Excel Output",
       "type": "n8n-nodes-base.readBinaryFile",
       "typeVersion": 1,
-      "position": [2220, 400]
+      "position": [2440, 400]
     },
     {
       "parameters": {
@@ -187,14 +227,14 @@
           "mode": "id",
           "value": "={{ $('Set Folder IDs').json.input_folder_id }}"
         },
-        "name": "={{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
+        "name": "={{ $('Set File Info').json.base_name }}_evidence_binder.xlsx",
         "options": {}
       },
       "id": "upload-excel",
       "name": "Upload to Google Drive",
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [2440, 300],
+      "position": [2660, 300],
       "credentials": {
         "googleDriveOAuth2Api": {
           "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
@@ -204,13 +244,13 @@
     },
     {
       "parameters": {
-        "command": "=rm -f \"/app/10k-inbox/{{ $('Split Out Files').json.name }}\" \"/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx\" \"/app/output/{{ $('Split Out Files').json.name.replace('.pdf', '').replace('.PDF', '') }}_extraction.json\""
+        "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').json.file_name }}\" \"{{ $('Set File Info').json.excel_path }}\" \"/app/output/{{ $('Set File Info').json.base_name }}_extraction.json\""
       },
       "id": "cleanup",
       "name": "Cleanup Local Files",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [2660, 300]
+      "position": [2880, 300]
     }
   ],
   "connections": {
@@ -248,6 +288,17 @@
       ]
     },
     "Split Out Files": {
+      "main": [
+        [
+          {
+            "node": "Set File Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set File Info": {
       "main": [
         [
           {
