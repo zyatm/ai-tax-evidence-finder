@@ -47,7 +47,7 @@ def extract_single(pdf_path: str, output_dir: str = None, config_path: str = Non
 
     # Extract
     extractor = VerbatimExtractor(config_path=config_path)
-    result = extractor.extract(doc, pdf_path.stem)
+    result = extractor.extract(doc)
     
     # Save JSON
     import json
