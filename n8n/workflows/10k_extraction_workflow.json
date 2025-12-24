@@ -176,7 +176,7 @@
       },
       {
         "parameters": {
-          "filePath": "={{ $('Set File Info').json.excel_path }}"
+          "filePath": "={{ $('Set File Info').first().json.excel_path }}"
         },
         "id": "read-existing-output",
         "name": "Read Existing Excel",
@@ -193,7 +193,7 @@
           "fileId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set File Info').json.file_id }}"
+            "value": "={{ $('Set File Info').first().json.file_id }}"
           },
           "options": {}
         },
@@ -215,7 +215,7 @@
       {
         "parameters": {
           "operation": "write",
-          "fileName": "=/app/10k-inbox/{{ $('Set File Info').json.file_name }}",
+          "fileName": "=/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}",
           "options": {}
         },
         "id": "save-pdf",
@@ -229,7 +229,7 @@
       },
       {
         "parameters": {
-          "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Set File Info').json.file_name }}\" --output /app/output",
+          "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}\" --output /app/output",
           "options": {
             "timeout": 600000
           }
@@ -245,7 +245,7 @@
       },
       {
         "parameters": {
-          "filePath": "={{ $('Set File Info').json.excel_path }}"
+          "filePath": "={{ $('Set File Info').first().json.excel_path }}"
         },
         "id": "read-output",
         "name": "Read Excel Output",
@@ -262,9 +262,9 @@
           "folderId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set Folder IDs').json.input_folder_id }}"
+            "value": "={{ $('Set Folder IDs').first().json.input_folder_id }}"
           },
-          "name": "={{ $('Set File Info').json.base_name }}_evidence_binder.xlsx",
+          "name": "={{ $('Set File Info').first().json.base_name }}_evidence_binder.xlsx",
           "options": {}
         },
         "id": "upload-excel",
@@ -284,7 +284,7 @@
       },
       {
         "parameters": {
-          "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').json.file_name }}\" \"{{ $('Set File Info').json.excel_path }}\" \"/app/output/{{ $('Set File Info').json.base_name }}_extraction.json\""
+          "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}\" \"{{ $('Set File Info').first().json.excel_path }}\" \"/app/output/{{ $('Set File Info').first().json.base_name }}_extraction.json\""
         },
         "id": "cleanup",
         "name": "Cleanup Local Files",
