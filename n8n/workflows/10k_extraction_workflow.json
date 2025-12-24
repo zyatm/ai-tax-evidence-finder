@@ -2,7 +2,7 @@
   {
     "name": "SEC 10-K Evidence Extraction",
     "active": false,
-    "versionId": "10",
+    "versionId": "11",
     "nodes": [
       {
         "parameters": {},
@@ -112,6 +112,20 @@
       },
       {
         "parameters": {
+          "batchSize": 1,
+          "options": {}
+        },
+        "id": "loop-items",
+        "name": "Loop Over Items",
+        "type": "n8n-nodes-base.splitInBatches",
+        "typeVersion": 3,
+        "position": [
+          1080,
+          400
+        ]
+      },
+      {
+        "parameters": {
           "mode": "manual",
           "duplicateItem": false,
           "assignments": {
@@ -135,21 +149,21 @@
                 "type": "string"
               },
               {
+                "id": "excel_name",
+                "name": "excel_name",
+                "value": "={{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
+                "type": "string"
+              },
+              {
                 "id": "excel_path",
                 "name": "excel_path",
                 "value": "=/app/output/{{ $json.name.replace('.pdf', '').replace('.PDF', '') }}_evidence_binder.xlsx",
                 "type": "string"
               },
               {
-                "id": "input_folder_id",
-                "name": "input_folder_id",
-                "value": "=1paipEIvzF0xyjmUqN6OplJHoaG6u9aEq",
-                "type": "string"
-              },
-              {
                 "id": "output_folder_id",
                 "name": "output_folder_id",
-                "value": "=1tW5CpOf-cVBE3RRQciNTOGrhveJYbc9H",
+                "value": "1tW5CpOf-cVBE3RRQciNTOGrhveJYbc9H",
                 "type": "string"
               }
             ]
@@ -161,8 +175,8 @@
         "type": "n8n-nodes-base.set",
         "typeVersion": 3.4,
         "position": [
-          1120,
-          300
+          1280,
+          400
         ]
       },
       {
@@ -176,7 +190,7 @@
             "parameters": [
               {
                 "name": "q",
-                "value": "='{{ $json.output_folder_id }}' in parents and name='{{ $json.base_name }}_evidence_binder.xlsx'"
+                "value": "='{{ $json.output_folder_id }}' in parents and name = '{{ $json.excel_name }}'"
               },
               {
                 "name": "fields",
@@ -191,8 +205,8 @@
         "type": "n8n-nodes-base.httpRequest",
         "typeVersion": 4.2,
         "position": [
-          1340,
-          300
+          1500,
+          400
         ],
         "credentials": {
           "googleDriveOAuth2Api": {
@@ -229,19 +243,19 @@
         "type": "n8n-nodes-base.if",
         "typeVersion": 2,
         "position": [
-          1560,
-          300
+          1720,
+          400
         ]
       },
       {
         "parameters": {},
         "id": "skip-already-processed",
-        "name": "Skip (Already Processed)",
+        "name": "Skip - Go to Next",
         "type": "n8n-nodes-base.noOp",
         "typeVersion": 1,
         "position": [
-          1780,
-          200
+          1940,
+          300
         ]
       },
       {
@@ -250,7 +264,7 @@
           "fileId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set File Info').first().json.file_id }}"
+            "value": "={{ $('Set File Info').item.json.file_id }}"
           },
           "options": {}
         },
@@ -259,8 +273,8 @@
         "type": "n8n-nodes-base.googleDrive",
         "typeVersion": 3,
         "position": [
-          1780,
-          400
+          1940,
+          500
         ],
         "credentials": {
           "googleDriveOAuth2Api": {
@@ -272,7 +286,7 @@
       {
         "parameters": {
           "operation": "write",
-          "fileName": "=/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}",
+          "fileName": "=/app/10k-inbox/{{ $('Set File Info').item.json.file_name }}",
           "options": {}
         },
         "id": "save-pdf",
@@ -280,13 +294,13 @@
         "type": "n8n-nodes-base.writeBinaryFile",
         "typeVersion": 1,
         "position": [
-          2000,
-          400
+          2160,
+          500
         ]
       },
       {
         "parameters": {
-          "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}\" --output /app/output",
+          "command": "=cd /app && python3 run.py extract \"/app/10k-inbox/{{ $('Set File Info').item.json.file_name }}\" --output /app/output",
           "options": {
             "timeout": 600000
           }
@@ -296,21 +310,21 @@
         "type": "n8n-nodes-base.executeCommand",
         "typeVersion": 1,
         "position": [
-          2220,
-          400
+          2380,
+          500
         ]
       },
       {
         "parameters": {
-          "filePath": "={{ $('Set File Info').first().json.excel_path }}"
+          "filePath": "={{ $('Set File Info').item.json.excel_path }}"
         },
         "id": "read-output",
         "name": "Read Excel Output",
         "type": "n8n-nodes-base.readBinaryFile",
         "typeVersion": 1,
         "position": [
-          2440,
-          400
+          2600,
+          500
         ]
       },
       {
@@ -319,9 +333,9 @@
           "folderId": {
             "__rl": true,
             "mode": "id",
-            "value": "={{ $('Set File Info').first().json.output_folder_id }}"
+            "value": "={{ $('Set File Info').item.json.output_folder_id }}"
           },
-          "name": "={{ $('Set File Info').first().json.base_name }}_evidence_binder.xlsx",
+          "name": "={{ $('Set File Info').item.json.excel_name }}",
           "options": {}
         },
         "id": "upload-excel",
@@ -329,8 +343,8 @@
         "type": "n8n-nodes-base.googleDrive",
         "typeVersion": 3,
         "position": [
-          2660,
-          300
+          2820,
+          500
         ],
         "credentials": {
           "googleDriveOAuth2Api": {
@@ -341,15 +355,15 @@
       },
       {
         "parameters": {
-          "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').first().json.file_name }}\" \"{{ $('Set File Info').first().json.excel_path }}\" \"/app/output/{{ $('Set File Info').first().json.base_name }}_extraction.json\""
+          "command": "=rm -f \"/app/10k-inbox/{{ $('Set File Info').item.json.file_name }}\" \"{{ $('Set File Info').item.json.excel_path }}\" \"/app/output/{{ $('Set File Info').item.json.base_name }}_extraction.json\""
         },
         "id": "cleanup",
         "name": "Cleanup Local Files",
         "type": "n8n-nodes-base.executeCommand",
         "typeVersion": 1,
         "position": [
-          2880,
-          300
+          3040,
+          500
         ]
       }
     ],
@@ -402,11 +416,23 @@
         "main": [
           [
             {
-              "node": "Set File Info",
+              "node": "Loop Over Items",
               "type": "main",
               "index": 0
             }
           ]
+        ]
+      },
+      "Loop Over Items": {
+        "main": [
+          [
+            {
+              "node": "Set File Info",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
         ]
       },
       "Set File Info": {
@@ -435,7 +461,7 @@
         "main": [
           [
             {
-              "node": "Skip (Already Processed)",
+              "node": "Skip - Go to Next",
               "type": "main",
               "index": 0
             }
@@ -443,6 +469,17 @@
           [
             {
               "node": "Download PDF",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Skip - Go to Next": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
               "type": "main",
               "index": 0
             }
@@ -498,6 +535,17 @@
           [
             {
               "node": "Cleanup Local Files",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Cleanup Local Files": {
+        "main": [
+          [
+            {
+              "node": "Loop Over Items",
               "type": "main",
               "index": 0
             }
