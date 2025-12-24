@@ -2,7 +2,7 @@
   {
     "name": "SEC 10-K Evidence Extraction",
     "active": false,
-    "versionId": "9",
+    "versionId": "10",
     "nodes": [
       {
         "parameters": {},
@@ -12,7 +12,72 @@
         "typeVersion": 1,
         "position": [
           240,
-          300
+          400
+        ]
+      },
+      {
+        "parameters": {
+          "pollTimes": {
+            "item": [
+              {
+                "mode": "everyMinute"
+              }
+            ]
+          },
+          "triggerOn": "specificFolder",
+          "folderToWatch": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1paipEIvzF0xyjmUqN6OplJHoaG6u9aEq"
+          },
+          "event": "fileCreated",
+          "options": {}
+        },
+        "id": "google-drive-trigger",
+        "name": "Google Drive Trigger",
+        "type": "n8n-nodes-base.googleDriveTrigger",
+        "typeVersion": 1,
+        "position": [
+          240,
+          200
+        ],
+        "credentials": {
+          "googleDriveOAuth2Api": {
+            "id": "GOOGLE_DRIVE_CREDENTIAL_ID",
+            "name": "Google Drive account"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": false,
+              "leftValue": "",
+              "typeValidation": "loose"
+            },
+            "conditions": [
+              {
+                "id": "is-pdf",
+                "leftValue": "={{ $json.mimeType }}",
+                "rightValue": "application/pdf",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "filter-pdf",
+        "name": "Is PDF?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          460,
+          200
         ]
       },
       {
@@ -33,7 +98,7 @@
         "typeVersion": 3.4,
         "position": [
           460,
-          300
+          400
         ]
       },
       {
@@ -63,7 +128,7 @@
         "typeVersion": 4.2,
         "position": [
           680,
-          300
+          400
         ],
         "credentials": {
           "googleDriveOAuth2Api": {
@@ -83,7 +148,7 @@
         "typeVersion": 1,
         "position": [
           900,
-          300
+          400
         ]
       },
       {
@@ -308,6 +373,29 @@
           ]
         ]
       },
+      "Google Drive Trigger": {
+        "main": [
+          [
+            {
+              "node": "Is PDF?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Is PDF?": {
+        "main": [
+          [
+            {
+              "node": "Set File Info",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
       "Set Folder IDs": {
         "main": [
           [
@@ -453,7 +541,7 @@
     },
     "staticData": null,
     "tags": [],
-    "triggerCount": 1,
+    "triggerCount": 2,
     "pinData": {}
   }
 ]
