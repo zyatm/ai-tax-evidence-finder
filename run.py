@@ -116,6 +116,8 @@ def extract_single(pdf_path: str, output_dir: str = None, config_path: str = Non
     print(f"\nOutputs:")
     print(f"  JSON: {json_path}")
     print(f"  Excel: {xlsx_path}")
+    # Machine-readable output for n8n parsing
+    print(f"OUTPUT_EXCEL:{xlsx_path}")
     
     return result
 
